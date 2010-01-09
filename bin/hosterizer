@@ -1,0 +1,120 @@
+#!/usr/bin/env ruby
+
+require 'rubygems'
+require 'net/ssh'
+require 'net/ssh/gateway'
+require 'optparse'
+
+module HosterizerApp
+
+  def self.options
+    @options ||= {
+      :verbose => 0,
+      :user    => ENV['USER']
+    }
+  end
+
+  def self.logger
+    @logger ||= Logger.new( $stdout )
+  end
+
+  def self.parse_options( args )
+    # Parse the options on the cmdline
+    OptionParser.new( args ) do |opts|
+      opts.banner = <<-EOS
+Scan hosts for applications and create an image describing their configuration.
+
+Usage:
+	hosterizer [options] <hosts>
+
+Options:
+EOS
+
+      opts.on '-v', '--verbose', 'Output more runtime information.' do |v|
+        options[:verbose] ||= 0
+        options[:verbose] += 1
+      end
+
+    end.parse!
+
+    # Setup our logger
+    log_level = case options[:verbose]
+      when 0 then Logger::WARN
+      when 1 then Logger::INFO
+      else Logger::DEBUG
+    end
+    logger.level = log_level
+  end
+
+  def self.load_host_types
+    # Require all the modules in lib/hosterizer/host_type/**.rb
+    $: << 'lib'
+
+    require 'hosterizer/host_type'
+
+    host_type_glob = File.join( 'lib', 'hosterizer', 'host_type', '**.rb' )
+    host_type_modules = Dir.glob( host_type_glob )
+    if host_type_modules.empty?
+      raise "No host_types modules found, searching: #{host_type_glob}"
+    end
+    host_type_modules.each do |type_file|
+      logger.debug( "requiring file #{type_file}" )
+      require type_file.sub( /\.rb$/, '' )
+    end
+  end
+
+  def self.split_user_and_host( host )
+    user_and_host = host.match( /(.*)(?:@(.*))?/ )
+
+    [ user_and_host[2], user_and_host[1] ]
+  end
+
+  def self.connect_to_host( host, &block )
+    hosts = host.match( Regexp.new( '(.*)/(.*)' ) )
+    if hosts
+      user_and_gateway = hosts[1].match( /(?:(.*)@)?(.*)/ )
+      gateway_user = user_and_gateway[1] || options[:user]
+      gateway_hostname = user_and_gateway[2]
+      logger.debug( "connecting to gateway '#{gateway_hostname}' as '#{gateway_user}'" )
+      gateway = Net::SSH::Gateway.new( gateway_hostname, gateway_user )
+
+      user_and_host = hosts[2].match( /(?:(.*)@)?(.*)/ )
+      host_user = user_and_host[1] || options[:user]
+      hostname  = user_and_host[2]
+      logger.debug( "connecting to host '#{hostname}' as '#{host_user}'" )
+      gateway.ssh( hostname, host_user, &block )
+    else
+      user_and_host = host.match( /(?:(.*)@)?(.*)/ )
+      host_user = user_and_host[1] || options[:user]
+      hostname  = user_and_host[2]
+      logger.debug( "connecting to host '#{hostname}' as '#{host_user}'" )
+      Net::SSH.start( hostname, host_user, &block )
+    end
+  end
+
+  def self.main( args )
+    parse_options( args )
+    load_host_types
+
+    # Start to process all the hosts given us on the cmdline
+    hosts = ARGV
+    hosts.each do |host|
+      logger.info "checking host #{host}"
+
+      connect_to_host host do |ssh|
+        logger.info "connected to host #{host}"
+
+        Hosterizer::HostType.types.each do |type|
+          logger.debug "checking application configuration #{type.to_s}"
+          type.probe( ssh, host )
+        end
+
+      end
+    end
+  end
+end
+
+if $0 == __FILE__
+  HosterizerApp.main( ARGV )
+end
+
