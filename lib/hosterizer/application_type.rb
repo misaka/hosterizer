@@ -2,7 +2,7 @@
 require 'hosterizer'
 
 
-module Hosterizer::HostType
+module Hosterizer::ApplicationType
   def self.extended( mod )
     types << mod
   end

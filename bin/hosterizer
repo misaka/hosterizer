@@ -54,18 +54,18 @@ EOS
   end
 
   # Load the modules that define the types applications we can detect.
-  def self.load_host_types
-    # Require all the modules in lib/hosterizer/host_type/**.rb
+  def self.load_application_types
+    # Require all the modules in lib/hosterizer/application_type/**.rb
     $: << 'lib'
 
-    require 'hosterizer/host_type'
+    require 'hosterizer/application_type'
 
-    host_type_glob = File.join( 'lib', 'hosterizer', 'host_type', '**.rb' )
-    host_type_modules = Dir.glob( host_type_glob )
-    if host_type_modules.empty?
-      raise "No host_types modules found, searching: #{host_type_glob}"
+    application_type_glob = File.join( 'lib', 'hosterizer', 'application_type', '**.rb' )
+    application_type_modules = Dir.glob( application_type_glob )
+    if application_type_modules.empty?
+      raise "No application_types modules found, searching: #{application_type_glob}"
     end
-    host_type_modules.each do |type_file|
+    application_type_modules.each do |type_file|
       logger.debug( "requiring file #{type_file}" )
       require type_file.sub( /\.rb$/, '' )
     end
@@ -111,7 +111,7 @@ EOS
 
   def self.main( args )
     parse_options( args )
-    load_host_types
+    load_application_types
 
     # A hash of the hosts and their applications
     hosts = {}
@@ -125,7 +125,7 @@ EOS
       connect_to_host host_string do |connection|
         logger.info "connected to host #{host_string}"
 
-        Hosterizer::HostType.types.each do |type|
+        Hosterizer::ApplicationType.types.each do |type|
           logger.debug "checking application configuration #{type.to_s}"
 
           # Get a list of applications of this type for this host.

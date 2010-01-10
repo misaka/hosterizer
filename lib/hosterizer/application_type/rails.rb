@@ -1,8 +1,8 @@
 
-require 'hosterizer/host_type'
+require 'hosterizer/application_type'
 
-module Hosterizer::HostType::Rails
-  extend Hosterizer::HostType
+module Hosterizer::ApplicationType::Rails
+  extend Hosterizer::ApplicationType
 
   def self.reject_paths
     @@reject_paths ||= []
