@@ -5,13 +5,14 @@ require 'net/ssh'
 require 'net/ssh/gateway'
 require 'optparse'
 require 'pp'
+require 'ruby-debug'
 
 module HosterizerApp
 
   def self.options
     @options ||= {
-      :verbose => 0,
-      :user    => ENV['USER']
+      :verbose     => 0,
+      :user        => ENV['USER']
     }
   end
 
@@ -130,7 +131,16 @@ EOS
 
           # Get a list of applications of this type for this host.
           hosts[host_string] ||= {}
-          hosts[host_string].merge! type.find_applications( connection, host_string )
+          host_apps = type.find_applications( connection, host_string )
+          hosts[host_string].merge! host_apps
+
+          # Get info for each application.
+          if !options[:list_apps]
+            host_apps.each do |app,info|
+              logger.debug "getting details for application '#{app}'"
+              type.get_app_details app, info, connection
+            end
+          end
         end
 
       end
