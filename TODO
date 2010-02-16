@@ -1,4 +1,6 @@
-- Commit.
 - Refactor ApplicationType to Application so that we return instances of it
   instead of just hashes with application information.
+- Create sample config file.
+- Add config file reading, save it to Hosterizer::CONFIG.
+- Move cmdline options to be saved to Hosterizer::CONFIG.
 

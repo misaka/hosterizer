@@ -60,26 +60,29 @@ class Hosterizer::Host
   end
 
   def list_applications
-    applications = {}
+    applications = []
 
     connect do |connection|
-      Hosterizer::ApplicationType.types.each do |type|
+      Hosterizer::Application.applications.each do |type|
         HosterizerApp::LOGGER.debug "checking application configuration #{type.to_s}"
 
         # Get a list of applications of this type for this host.
-        applications[type.to_s] = type.find_applications( connection, hostname )
+        applications.concat type.find_applications( connection, hostname )
+        # Below is from when we used a hash to track applications. Maybe this is
+        # a good idea for the sake of sorting the output?
+#         applications[type.to_s] = type.find_applications( connection, hostname )
 
         # Get info for each application.
         if !HosterizerApp::CONFIG[:list_apps]
-          applications[type.to_s].each do |app,info|
-            HosterizerApp::LOGGER.debug "getting details for application '#{app}'"
-            type.get_app_details app, info, connection
+          applications.each do |app|
+            HosterizerApp::LOGGER.debug "getting details for application '#{app.name}'"
+            app.read_configuration connection
           end
         end
       end
     end
 
-    applications
+    pp applications
   end
 
 end

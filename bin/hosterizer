@@ -13,7 +13,8 @@ module HosterizerApp
   LOGGER = Logger.new( $stdout )
   CONFIG = {
     :verbose => 0,
-    :user    => ENV['USER']
+    :user    => ENV['USER'],
+    :rails_environment => 'production'
   }
 
   def self.options
@@ -59,18 +60,18 @@ EOS
   end
 
   # Load the modules that define the types applications we can detect.
-  def self.load_application_types
-    # Require all the modules in lib/hosterizer/application_type/**.rb
+  def self.load_applications
+    # Require all the modules in lib/hosterizer/application/**.rb
     $: << 'lib'
 
-    require 'hosterizer/application_type'
+    require 'hosterizer/application'
 
-    application_type_glob = File.join( 'lib', 'hosterizer', 'application_type', '**.rb' )
-    application_type_modules = Dir.glob( application_type_glob )
-    if application_type_modules.empty?
-      raise "No application_types modules found, searching: #{application_type_glob}"
+    applications_glob = File.join( 'lib', 'hosterizer', 'application', '**.rb' )
+    application_modules = Dir.glob( applications_glob )
+    if application_modules.empty?
+      raise "No application modules found, searching: #{applications_glob}"
     end
-    application_type_modules.each do |type_file|
+    application_modules.each do |type_file|
       logger.debug( "requiring file #{type_file}" )
       require type_file.sub( /\.rb$/, '' )
     end
@@ -84,7 +85,7 @@ EOS
 
   def self.main( args )
     parse_options( args )
-    load_application_types
+    load_applications
 
     # A hash of the hosts and their applications
     hosts = {}
