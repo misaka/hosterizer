@@ -6,18 +6,22 @@ require 'net/ssh/gateway'
 require 'optparse'
 require 'pp'
 require 'ruby-debug'
+require 'hosterizer/host'
 
 module HosterizerApp
 
+  LOGGER = Logger.new( $stdout )
+  CONFIG = {
+    :verbose => 0,
+    :user    => ENV['USER']
+  }
+
   def self.options
-    @options ||= {
-      :verbose     => 0,
-      :user        => ENV['USER']
-    }
+    CONFIG
   end
 
   def self.logger
-    @logger ||= Logger.new( $stdout )
+    LOGGER
   end
 
   # Parse all the cmdline options.
@@ -78,38 +82,6 @@ EOS
     [ user_and_host[2], user_and_host[1] ]
   end
 
-  # Connect to the given host.
-  #
-  # The hostname can have encoded in it a gateway host and/or a username to
-  # use to connect with. The syntax for the hosts is:
-  #
-  #   [[gateway_user@]gateway/][user@]host
-  #
-  # This method will decode this, connect as required using the gateway and
-  # user, if necessary, and then call the block provided.
-  def self.connect_to_host( host, &block )
-    hosts = host.match( Regexp.new( '(.*)/(.*)' ) )
-    if hosts
-      user_and_gateway = hosts[1].match( /(?:(.*)@)?(.*)/ )
-      gateway_user = user_and_gateway[1] || options[:user]
-      gateway_hostname = user_and_gateway[2]
-      logger.debug( "connecting to gateway '#{gateway_hostname}' as '#{gateway_user}'" )
-      gateway = Net::SSH::Gateway.new( gateway_hostname, gateway_user )
-
-      user_and_host = hosts[2].match( /(?:(.*)@)?(.*)/ )
-      host_user = user_and_host[1] || options[:user]
-      hostname  = user_and_host[2]
-      logger.debug( "connecting to host '#{hostname}' as '#{host_user}'" )
-      gateway.ssh( hostname, host_user, &block )
-    else
-      user_and_host = host.match( /(?:(.*)@)?(.*)/ )
-      host_user = user_and_host[1] || options[:user]
-      hostname  = user_and_host[2]
-      logger.debug( "connecting to host '#{hostname}' as '#{host_user}'" )
-      Net::SSH.start( hostname, host_user, &block )
-    end
-  end
-
   def self.main( args )
     parse_options( args )
     load_application_types
@@ -122,28 +94,8 @@ EOS
     host_strings.each do |host_string|
       logger.info "checking host #{host_string}"
 
-      # Make a connection using our connection strategy.
-      connect_to_host host_string do |connection|
-        logger.info "connected to host #{host_string}"
-
-        Hosterizer::ApplicationType.types.each do |type|
-          logger.debug "checking application configuration #{type.to_s}"
-
-          # Get a list of applications of this type for this host.
-          hosts[host_string] ||= {}
-          host_apps = type.find_applications( connection, host_string )
-          hosts[host_string].merge! host_apps
-
-          # Get info for each application.
-          if !options[:list_apps]
-            host_apps.each do |app,info|
-              logger.debug "getting details for application '#{app}'"
-              type.get_app_details app, info, connection
-            end
-          end
-        end
-
-      end
+      host = Hosterizer::Host.create_from_string host_string
+      hosts[host_string] = host.list_applications
     end
 
     pp hosts

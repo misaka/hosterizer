@@ -1,0 +1,4 @@
+- Commit.
+- Refactor ApplicationType to Application so that we return instances of it
+  instead of just hashes with application information.
+
